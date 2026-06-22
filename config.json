@@ -1,0 +1,20 @@
+{
+  "model_type": "jfp-aligned",
+  "base_model": "Qwen/Qwen2.5-7B-Instruct",
+  "jfp_version": "v16E.0.0",
+  "inference": {
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "repetition_penalty": 1.1,
+    "max_new_tokens": 2048,
+    "do_sample": false,
+    "output_format": "structured_json"
+  },
+  "jfp_settings": {
+    "strict_mode": true,
+    "hallucination_fallback": "SIGNAL_UNKNOWN",
+    "audit_required": true,
+    "drift_protection": true,
+    "constitutional_layer": "system_prompt.txt"
+  }
+}
