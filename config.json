@@ -1,6 +1,6 @@
 {
   "model_type": "jfp-aligned",
-  "base_model": "Qwen/Qwen2.5-7B-Instruct",
+  "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
   "jfp_version": "v16E.0.0",
   "inference": {
     "temperature": 0.0,

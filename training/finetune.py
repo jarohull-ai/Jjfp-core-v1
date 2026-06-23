@@ -23,7 +23,7 @@ from peft import (
 )
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
-MODEL_ID       = "Qwen/Qwen2.5-7B-Instruct"
+MODEL_ID       = "Qwen/Qwen2.5-1.5B-Instruct"
 DATASET_PATH   = "/home/jaro/Jjfp-core-v1/training/dataset.jsonl"
 OUTPUT_DIR     = "/home/jaro/Jjfp-core-v1/jfp-lora-adapter"
 MAX_SEQ_LENGTH = 512

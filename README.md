@@ -3,7 +3,7 @@ license: cc-by-nc-4.0
 language:
 - en
 - pl
-base_model: Qwen/Qwen2.5-7B-Instruct
+base_model: Qwen/Qwen2.5-1.5B-Instruct
 pipeline_tag: text-generation
 library_name: transformers
 tags:
@@ -50,7 +50,9 @@ This is not a standard language model. It is a **protocol-governed AI engine** d
 
 ## Base Model
 
-Built as a fine-tune configuration for **Qwen/Qwen2.5-7B-Instruct**.
+Built as a fine-tune configuration for **Qwen/Qwen2.5-1.5B-Instruct**.
+
+Lightweight local agent designed for continuous learning via JFP-BC constitution.
 
 ## Tools
 
