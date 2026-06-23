@@ -1,8 +1,8 @@
 """
-JFP-Core-v1 QLoRA Fine-tuning Script
-Model: Qwen/Qwen2.5-7B-Instruct
-Hardware: RTX 2060 (6GB VRAM)
-Method: QLoRA (4-bit quantization via bitsandbytes)
+JFP-Core-v1 LoRA Fine-tuning Script
+Model:    Qwen/Qwen2.5-7B-Instruct
+Hardware: AMD RX 9060 XT 8GB VRAM + ROCm
+Method:   LoRA (fp16, no bitsandbytes — not supported on ROCm)
 """
 
 import os
@@ -12,7 +12,6 @@ from datasets import Dataset
 from transformers import (
     AutoTokenizer,
     AutoModelForCausalLM,
-    BitsAndBytesConfig,
     TrainingArguments,
     Trainer,
     DataCollatorForSeq2Seq,
@@ -21,30 +20,27 @@ from peft import (
     LoraConfig,
     get_peft_model,
     TaskType,
-    prepare_model_for_kbit_training,
 )
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
-MODEL_ID        = "Qwen/Qwen2.5-7B-Instruct"
-DATASET_PATH    = os.path.join(os.path.dirname(__file__), "dataset.jsonl")
-OUTPUT_DIR      = "./jfp-core-v1-lora"
-MAX_SEQ_LENGTH  = 512
-BATCH_SIZE      = 1
-GRAD_ACCUM      = 8
-LEARNING_RATE   = 2e-4
-NUM_EPOCHS      = 3
-LORA_R          = 16
-LORA_ALPHA      = 32
-LORA_DROPOUT    = 0.05
-TARGET_MODULES  = ["q_proj", "k_proj", "v_proj", "o_proj"]
+MODEL_ID       = "Qwen/Qwen2.5-7B-Instruct"
+DATASET_PATH   = "/home/jaro/Jjfp-core-v1/training/dataset.jsonl"
+OUTPUT_DIR     = "/home/jaro/Jjfp-core-v1/jfp-lora-adapter"
+MAX_SEQ_LENGTH = 512
+BATCH_SIZE     = 2
+GRAD_ACCUM     = 4
+LEARNING_RATE  = 2e-4
+NUM_EPOCHS     = 3
+LORA_R         = 16
+LORA_ALPHA     = 32
+LORA_DROPOUT   = 0.05
+TARGET_MODULES = ["q_proj", "k_proj", "v_proj", "o_proj"]
 
-# ─── 4-BIT QUANTIZATION CONFIG ───────────────────────────────────────────────
-bnb_config = BitsAndBytesConfig(
-    load_in_4bit=True,
-    bnb_4bit_use_double_quant=True,
-    bnb_4bit_quant_type="nf4",
-    bnb_4bit_compute_dtype=torch.bfloat16,
-)
+# ─── DEVICE CHECK ────────────────────────────────────────────────────────────
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"Device: {device}")
+if device == "cuda":
+    print(f"GPU: {torch.cuda.get_device_name(0)}")
 
 # ─── LOAD TOKENIZER ──────────────────────────────────────────────────────────
 print("Loading tokenizer...")
@@ -56,20 +52,16 @@ tokenizer = AutoTokenizer.from_pretrained(
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
-# ─── LOAD MODEL ──────────────────────────────────────────────────────────────
-print("Loading model in 4-bit (QLoRA)...")
+# ─── LOAD MODEL (fp16, no quantization) ──────────────────────────────────────
+print("Loading model in fp16...")
 model = AutoModelForCausalLM.from_pretrained(
     MODEL_ID,
-    quantization_config=bnb_config,
+    torch_dtype=torch.float16,
     device_map="auto",
     trust_remote_code=True,
-    torch_dtype=torch.bfloat16,
 )
 model.config.use_cache = False
 model.config.pretraining_tp = 1
-
-# ─── PREPARE FOR KBIT TRAINING ───────────────────────────────────────────────
-model = prepare_model_for_kbit_training(model)
 
 # ─── LORA CONFIG ─────────────────────────────────────────────────────────────
 lora_config = LoraConfig(
@@ -91,16 +83,13 @@ with open(DATASET_PATH, "r", encoding="utf-8") as f:
         line = line.strip()
         if line:
             raw_data.append(json.loads(line))
-
 print(f"Loaded {len(raw_data)} examples.")
 
 # ─── TOKENIZE ────────────────────────────────────────────────────────────────
 def tokenize(example):
     """Apply Qwen2.5 chat template and tokenize."""
-    messages = example["messages"]
-    # Apply chat template (Qwen2.5 format)
     text = tokenizer.apply_chat_template(
-        messages,
+        example["messages"],
         tokenize=False,
         add_generation_prompt=False,
     )
@@ -118,7 +107,7 @@ dataset = Dataset.from_list(raw_data)
 tokenized_dataset = dataset.map(
     tokenize,
     remove_columns=dataset.column_names,
-    desc="Tokenizing dataset",
+    desc="Tokenizing",
 )
 
 # ─── TRAINING ARGUMENTS ──────────────────────────────────────────────────────
@@ -130,16 +119,16 @@ training_args = TrainingArguments(
     learning_rate=LEARNING_RATE,
     lr_scheduler_type="cosine",
     warmup_ratio=0.05,
-    fp16=False,
-    bf16=True,
+    fp16=True,
+    bf16=False,
     logging_steps=10,
     save_strategy="epoch",
     save_total_limit=2,
-    optim="paged_adamw_8bit",
+    optim="adamw_torch",
     report_to="none",
-    dataloader_pin_memory=False,
     gradient_checkpointing=True,
     group_by_length=True,
+    dataloader_pin_memory=False,
 )
 
 # ─── DATA COLLATOR ───────────────────────────────────────────────────────────
@@ -160,14 +149,16 @@ trainer = Trainer(
 )
 
 # ─── TRAIN ───────────────────────────────────────────────────────────────────
-print("Starting QLoRA training...")
+print("Starting LoRA training on ROCm...")
 trainer.train()
 
 # ─── SAVE ADAPTER ────────────────────────────────────────────────────────────
 print("Saving LoRA adapter...")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 model.save_pretrained(OUTPUT_DIR)
 tokenizer.save_pretrained(OUTPUT_DIR)
 
 print(f"\n{'='*60}")
-print("TRAINING COMPLETE - adapter saved to ./jfp-core-v1-lora")
+print("TRAINING COMPLETE")
+print(f"Adapter saved to: {OUTPUT_DIR}")
 print(f"{'='*60}")
