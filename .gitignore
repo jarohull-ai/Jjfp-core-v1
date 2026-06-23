@@ -1,0 +1,5 @@
+jfp-lora-adapter/
+__pycache__/
+*.pyc
+training/train_full.log
+training/train.log
