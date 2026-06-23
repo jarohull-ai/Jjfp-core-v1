@@ -1,0 +1,49 @@
+{
+  "jfp_version": "v16E.0.0",
+  "model": "jfp-core-v1",
+  "tool_protocol": "JFP_TOOL_STANDARD_v1",
+  "tools": [
+    {
+      "name": "code_execution",
+      "description": "Execute Python code in a sandboxed JFP-governed environment",
+      "input": {"code": "string", "language": "python | bash", "timeout_seconds": "integer"},
+      "output": {"result": "string", "status": "SUCCESS | FAILED | TIMEOUT", "audit_id": "string"}
+    },
+    {
+      "name": "file_operations",
+      "description": "Read, write, append files within JFP-defined boundaries",
+      "input": {"operation": "read | write | append | delete", "path": "string", "content": "string | null"},
+      "output": {"result": "string | null", "status": "SUCCESS | DENIED | NOT_FOUND", "audit_id": "string"}
+    },
+    {
+      "name": "voql_query",
+      "description": "Execute VOQL queries against connected data sources",
+      "input": {"query": "string", "source": "string", "mode": "read | write | audit"},
+      "output": {"data": "object | null", "rows_affected": "integer", "status": "SUCCESS | DENIED | ERROR", "audit_id": "string"}
+    },
+    {
+      "name": "agent_dispatch",
+      "description": "Spawn or communicate with sub-agents within VIKI ecosystem",
+      "input": {"target_agent": "string", "signal": "string", "payload": "object", "priority": "LOW | NORMAL | HIGH | CRITICAL"},
+      "output": {"response": "object | null", "agent_id": "string", "status": "DISPATCHED | FAILED | TIMEOUT", "audit_id": "string"}
+    },
+    {
+      "name": "audit_log",
+      "description": "Write immutable audit entry",
+      "input": {"action": "string", "actor": "string", "payload": "object", "severity": "INFO | WARNING | CRITICAL"},
+      "output": {"log_id": "string", "timestamp": "ISO8601", "status": "WRITTEN | FAILED"}
+    },
+    {
+      "name": "jfp_validate",
+      "description": "Validate any input/output against JFP schema",
+      "input": {"payload": "object", "schema_version": "string", "strict_mode": "boolean"},
+      "output": {"valid": "boolean", "errors": "array | null", "warnings": "array | null"}
+    }
+  ],
+  "global_rules": {
+    "every_tool_call_requires_audit_log": true,
+    "denied_actions_are_logged_not_silenced": true,
+    "no_tool_can_override_jfp_constitution": true,
+    "hallucination_fallback": "SIGNAL_UNKNOWN"
+  }
+}
